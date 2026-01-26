@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+<<<<<<< HEAD
       <module fileurl="file://$PROJECT_DIR$/.idea/U-Bahn_Projekt_Teil_2_OOP.iml" filepath="$PROJECT_DIR$/.idea/U-Bahn_Projekt_Teil_2_OOP.iml" />
+=======
+      <module fileurl="file://$PROJECT_DIR$/.idea/25FIDP_U-Bahn_Projekt_Teil_2_OOP.iml" filepath="$PROJECT_DIR$/.idea/25FIDP_U-Bahn_Projekt_Teil_2_OOP.iml" />
+>>>>>>> 55e3fc3 (Sprint 1 fertig)
     </modules>
   </component>
 </project>

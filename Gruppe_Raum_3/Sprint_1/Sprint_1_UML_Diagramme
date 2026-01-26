@@ -1,0 +1,21 @@
+@startuml
+class Fahrplan {
+  - startzeit: datetime
+  - endzeit: datetime
+  - intervall: int
+  - stationen: dict
+  + berechne_fahrtzeit_von_start(station: str): int?
+  + naechste_abfahrt(station: str, aktuelle_zeit: str): datetime?
+  + berechne_fahrtzeit(start: str, ziel: str): int?
+}
+
+class main {
+  - alle_stationen: list
+  - aktuelle_zeit: str
+  - aktuelle_station: str
+  - zielstation: str
+  + (Eingabe, Ablaufsteuerung, Ausgabe)
+}
+
+main ..> Fahrplan : benutzt
+@enduml
