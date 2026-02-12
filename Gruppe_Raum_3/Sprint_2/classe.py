@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -10,95 +10,119 @@ class Fahrplan:
     startzeit: datetime
     endzeit: datetime
     intervall: int
-    stationen: Dict[str, List[Dict[str, Any]]]
     stationen_reihenfolge: List[str]
+    fahrtzeiten: List[int]
+    haltezeiten: dict
+    endhaltestellen: set
 
-    def finde_linear_weg(self, start: str, ziel: str) -> Optional[List[str]]:
-        """Findet den Weg zwischen zwei Stationen in beide Richtungen"""
+    def _idx(self, station: str) -> int:
+        """Gibt den Index einer Station zurück"""
+        return self.stationen_reihenfolge.index(station.upper())
+
+    def _berechne_ankunft(self, zug_abfahrt: datetime, von_idx: int, bis_idx: int) -> datetime:
+        """
+        Berechnet Ankunftszeit an bis_idx.
+        Haltezeiten der Zwischenstationen werden eingerechnet.
+        Haltezeit der Startstation wird NICHT eingerechnet.
+        Funktioniert für Hin- und Rückrichtung.
+        """
+        zeit = zug_abfahrt
+
+        if von_idx < bis_idx:
+            # Hinrichtung
+            for i in range(von_idx, bis_idx):
+                if i > von_idx:
+                    zeit += timedelta(seconds=self.haltezeiten[self.stationen_reihenfolge[i]])
+                zeit += timedelta(minutes=self.fahrtzeiten[i])
+        else:
+            # Rückrichtung
+            for i in range(von_idx, bis_idx, -1):
+                if i < von_idx:
+                    zeit += timedelta(seconds=self.haltezeiten[self.stationen_reihenfolge[i]])
+                zeit += timedelta(minutes=self.fahrtzeiten[i - 1])
+
+        return zeit
+
+    def _berechne_abfahrt(self, ankunft: datetime, station: str) -> datetime:
+        """
+        Abfahrtszeit an einer Station:
+        - Endhaltestellen (LW Süd, Fürth Hbf): direkte Abfahrt, keine extra Haltezeit
+        - Alle anderen Stationen: Ankunft + Haltezeit
+        """
+        if station in self.endhaltestellen:
+            return ankunft
+        return ankunft + timedelta(seconds=self.haltezeiten[station])
+
+    def _runde_ab(self, dt: datetime) -> datetime:
+        """Rundet auf die frühere volle Minute ab"""
+        return dt.replace(second=0, microsecond=0)
+
+    def naechste_abfahrt(
+        self, start: str, ziel: str, gewuenscht: str
+    ) -> Tuple[Optional[datetime], Optional[datetime], bool]:
+        """
+        Findet die nächste Verbindung ab der gewünschten Zeit.
+
+        Logik:
+        - Ankunft an Startstation berechnen
+        - Abfahrt = Ankunft + Haltezeit (außer Endhaltestellen)
+        - Abfahrt auf frühere Minute abrunden
+        - Wenn abgerundete Abfahrt >= gewünschte Zeit → diesen Zug nehmen
+
+        Returns:
+            (abfahrt_gerundet, ankunft_ziel_gerundet, ist_naechster_tag)
+        """
         start = start.upper()
         ziel = ziel.upper()
-
-        if start not in self.stationen_reihenfolge:
-            return None
-        if ziel not in self.stationen_reihenfolge:
-            return None
-
-        i1 = self.stationen_reihenfolge.index(start)
-        i2 = self.stationen_reihenfolge.index(ziel)
-
-        if i1 <= i2:
-            # Hinrichtung: Langwasser Süd → Fürth Hbf
-            return self.stationen_reihenfolge[i1:i2 + 1]
-        else:
-            # Rückrichtung: Fürth Hbf → Langwasser Süd
-            return list(reversed(self.stationen_reihenfolge[i2:i1 + 1]))
-
-    def berechne_reisezeit(self, weg: List[str]) -> timedelta:
-        """Berechnet die Reisezeit entlang eines Weges"""
-        gesamt = timedelta()
-
-        for i in range(len(weg) - 1):
-            aktuelle = weg[i]
-            naechste = weg[i + 1]
-
-            # Suche nach der Verbindung in der bidirektionalen Adjazenzliste
-            for v in self.stationen[aktuelle]:
-                if v["nachher"] == naechste:
-                    gesamt += timedelta(minutes=v["fahrtzeit"])
-                    if i < len(weg) - 2:  # Keine Haltezeit am Ziel
-                        gesamt += timedelta(seconds=v["haltezeit"])
-                    break
-
-        return gesamt
-
-    def dauer_gesamt_hinweg(self) -> timedelta:
-        """Berechnet die Gesamtdauer für die komplette Hinfahrt"""
-        return self.berechne_reisezeit(self.stationen_reihenfolge)
-
-    def naechste_abfahrt(self, start: str, ziel: str, gewuenscht: str) -> Optional[datetime]:
-        """Findet die nächste Abfahrt nach gewünschter Zeit (berücksichtigt Hin- und Rückfahrt)"""
-        weg = self.finde_linear_weg(start, ziel)
-        if not weg:
-            return None
 
         gewuenscht_dt = datetime.combine(
             self.startzeit.date(),
             datetime.strptime(gewuenscht, "%H:%M").time()
         )
 
-        # Prüfe ob Hinrichtung oder Rückrichtung
-        i_start = self.stationen_reihenfolge.index(start.upper())
-        i_ziel = self.stationen_reihenfolge.index(ziel.upper())
-        ist_hinrichtung = i_start < i_ziel
+        start_idx = self._idx(start)
+        ziel_idx = self._idx(ziel)
+        ist_hinrichtung = start_idx < ziel_idx
+        fuerth_idx = len(self.stationen_reihenfolge) - 1
 
         zug_start = self.startzeit
 
         while zug_start <= self.endzeit:
+
             if ist_hinrichtung:
-                # HINFAHRT: Zug startet in Langwasser Süd
-                offset = self.berechne_reisezeit(
-                    self.finde_linear_weg(self.stationen_reihenfolge[0], start)
-                )
-                ankunft_start = zug_start + offset
-
-                if ankunft_start >= gewuenscht_dt:
-                    return ankunft_start.replace(second=0)
+                # Ankunft an Startstation von Langwasser Süd
+                ankunft_start = self._berechne_ankunft(zug_start, 0, start_idx)
             else:
-                # RÜCKFAHRT: Zug muss erst Fürth Hbf erreichen, wenden, dann zurück
-                # Zeit bis Fürth Hbf + 60 Sek Wendezeit
-                zeit_bis_fuerth = self.dauer_gesamt_hinweg()
-                start_rueckfahrt = zug_start + zeit_bis_fuerth + timedelta(seconds=60)
-
-                # Zeit von Fürth Hbf bis zur Startstation
-                offset_rueck = self.berechne_reisezeit(
-                    self.finde_linear_weg(self.stationen_reihenfolge[-1], start)
+                # Rückfahrt: bis Fürth Hbf, Wendezeit, dann zurück
+                ankunft_fuerth = self._berechne_ankunft(zug_start, 0, fuerth_idx)
+                abfahrt_rueck = ankunft_fuerth + timedelta(
+                    seconds=self.haltezeiten[self.stationen_reihenfolge[fuerth_idx]]
                 )
-                ankunft_start = start_rueckfahrt + offset_rueck
+                ankunft_start = self._berechne_ankunft(abfahrt_rueck, fuerth_idx, start_idx)
 
-                if ankunft_start >= gewuenscht_dt:
-                    return ankunft_start.replace(second=0)
+            # Abfahrtszeit berechnen und abrunden
+            abfahrt_start = self._berechne_abfahrt(ankunft_start, start)
+            abfahrt_gerundet = self._runde_ab(abfahrt_start)
 
-            # Nächster Zug
+            if abfahrt_gerundet >= gewuenscht_dt:
+                ankunft_ziel = self._berechne_ankunft(abfahrt_start, start_idx, ziel_idx)
+                return abfahrt_gerundet, self._runde_ab(ankunft_ziel), False
+
             zug_start += timedelta(minutes=self.intervall)
 
-        return None
+        # Kein Zug heute mehr → ersten Zug morgen berechnen
+        naechster_tag = self.startzeit + timedelta(days=1)
+
+        if ist_hinrichtung:
+            ankunft_start = self._berechne_ankunft(naechster_tag, 0, start_idx)
+        else:
+            ankunft_fuerth = self._berechne_ankunft(naechster_tag, 0, fuerth_idx)
+            abfahrt_rueck = ankunft_fuerth + timedelta(
+                seconds=self.haltezeiten[self.stationen_reihenfolge[fuerth_idx]]
+            )
+            ankunft_start = self._berechne_ankunft(abfahrt_rueck, fuerth_idx, start_idx)
+
+        abfahrt_start = self._berechne_abfahrt(ankunft_start, start)
+        abfahrt_morgen = self._runde_ab(abfahrt_start)
+        ankunft_ziel = self._berechne_ankunft(abfahrt_start, start_idx, ziel_idx)
+        return abfahrt_morgen, self._runde_ab(ankunft_ziel), True

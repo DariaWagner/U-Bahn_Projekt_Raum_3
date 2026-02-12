@@ -1,47 +1,60 @@
 # Sprint_2/main.py
 
-from service import erstelle_fahrplan, eingabe_zeit
+from service import (
+    erstelle_fahrplan,
+    eingabe_zeit,
+    zeige_stationen,
+    eingabe_station_mit_nummer
+)
 
 
 if __name__ == "__main__":
     fahrplan = erstelle_fahrplan()
-   
-    print("=" * 60)
-    print("Willkommen zum Fahrplan der U-Bahn Linie U1!")
-    print("Langwasser Süd ↔ Fürth Hbf")
-    print("=" * 60)
-    
-    start = None
-    ziel = None
-    
-    while not start:
-        start = input("\nGeben Sie die Starthaltestelle ein: ").strip().upper()
-        if start not in fahrplan.stationen_reihenfolge:
-            print("❌ Ungültige Haltestelle. Bitte versuchen Sie es erneut.")
-            start = None
-    
-    while not ziel:
-        ziel = input("Geben Sie die Zielhaltestelle ein: ").strip().upper()
-        if ziel not in fahrplan.stationen_reihenfolge:
-            print("❌ Ungültige Haltestelle. Bitte versuchen Sie es erneut.")
-            ziel = None
-        elif start == ziel:
-            print("❌ Start und Ziel sind identisch. Bitte wählen Sie unterschiedliche Stationen.")
-            ziel = None
-    
-    # Gewünschte Zeit abfragen
+
+    print("\n" + "=" * 80)
+    print("WILLKOMMEN ZUM FAHRPLAN DER U-BAHN LINIE U1!".center(80))
+    print("Langwasser Süd ↔ Fürth Hbf".center(80))
+    print("=" * 80)
+
+    # Alle Stationen anzeigen
+    zeige_stationen(fahrplan)
+
+    # Eingabe Start
+    start = eingabe_station_mit_nummer(fahrplan, "Geben Sie die Starthaltestelle ein")
+    print(f"✓ Start: {start}")
+
+    # Eingabe Ziel
+    while True:
+        ziel = eingabe_station_mit_nummer(fahrplan, "Geben Sie die Zielhaltestelle ein")
+        if start == ziel:
+            print("❌ Start und Ziel sind identisch. Bitte wählen Sie eine andere Station.")
+        else:
+            print(f"✓ Ziel: {ziel}")
+            break
+
+    # Zeitabfrage
     gewuenscht = eingabe_zeit()
     if not gewuenscht:
         print("\n❌ Ungültige Zeiteingabe. Programm wird beendet.")
         exit()
 
-    # Berechne nächste Abfahrt
-    abfahrt = fahrplan.naechste_abfahrt(start, ziel, gewuenscht)
-    
-    print("\n" + "=" * 60)
-    if abfahrt:
-        print(f"✓ Nächste Abfahrt von {start} nach {ziel}:")
-        print(f"  → {abfahrt.strftime('%H:%M')} Uhr")
+    # Berechnung
+    abfahrt, ankunft, ist_naechster_tag = fahrplan.naechste_abfahrt(start, ziel, gewuenscht)
+
+    print("\n" + "=" * 80)
+    if abfahrt and ankunft:
+        print("✓ NÄCHSTE VERBINDUNG".center(80))
+        print("-" * 80)
+
+        if ist_naechster_tag:
+            print("⚠ ACHTUNG: Betriebsschluss erreicht!".center(80))
+            print("Nächste Verbindung erst morgen:".center(80))
+            print("-" * 80)
+
+        print(f"  Von:      {start}")
+        print(f"  Nach:     {ziel}")
+        print(f"  Abfahrt:  {abfahrt.strftime('%H:%M')} Uhr")
+        print(f"  Ankunft:  {ankunft.strftime('%H:%M')} Uhr")
     else:
-        print("❌ Keine Verbindung gefunden (außerhalb der Betriebszeiten).")
-    print("=" * 60)
+        print("❌ Keine Verbindung gefunden.".center(80))
+    print("=" * 80 + "\n")

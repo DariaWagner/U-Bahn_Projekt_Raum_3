@@ -1,0 +1,252 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Sprint 2: U-Bahn U1                            │
+│                         Fahrplanauskunftssystem                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          adjazenzliste.py                                │
+│                         (Konfiguration/Daten)                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│ + MAX_VERSUCHE: int = 3                                                  │
+│                                                                          │
+│ + UHRZEITEN_BETRIEB_LINIE_U1: Dict[str, str|int]                         │
+│   - start: "05:00"                                                       │
+│   - ende: "23:00"                                                        │
+│   - intervall_minuten: 10                                                │
+│                                                                          │
+│ + STATIONEN_REIHENFOLGE: List[str]                                       │
+│   [23 Stationen von LANGWASSER SÜD bis FÜRTH HBF]                        │
+│                                                                          │
+│ + FAHRTZEITEN: List[int]                                                 │
+│   [22 Fahrtzeiten in Minuten zwischen Stationen]                         │
+│                                                                          │
+│ + HALTEZEITEN: Dict[str, int]                                            │
+│   {Station: Haltezeit_in_Sekunden}                                       │
+│   - Standard: 30s                                                        │
+│   - Hauptknoten (Hbf, Plärrer): 60s                                      │
+│   - Endhaltestellen: 60s                                                 │
+│                                                                          │
+│ + ENDHALTESTELLEN: Set[str]                                              │
+│   {"LANGWASSER SÜD", "FÜRTH HBF"}                                        │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ imports
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           @dataclass Fahrplan                            │
+│                              (classe.py)                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│ - startzeit: datetime           # 05:00 des aktuellen Tages              │
+│ - endzeit: datetime             # 23:00 des aktuellen Tages              │
+│ - intervall: int                # 10 Minuten Takt                        │
+│ - stationen_reihenfolge: List[str]                                       │
+│ - fahrtzeiten: List[int]                                                 │
+│ - haltezeiten: Dict[str, int]                                            │
+│ - endhaltestellen: Set[str]                                              │
+├──────────────────────────────────────────────────────────────────────────┤
+│ + _idx(station: str) -> int                                              │
+│   └─ Gibt Index einer Station zurück                                     │
+│                                                                          │
+│ + _berechne_ankunft(zug_abfahrt: datetime,                               │
+│                     von_idx: int,                                        │
+│                     bis_idx: int) -> datetime                            │
+│   └─ Berechnet Ankunftszeit an Zielstation                               │
+│   └─ Funktioniert für Hin- und Rückrichtung                              │
+│   └─ Berücksichtigt Haltezeiten an Zwischenstationen                     │
+│                                                                          │
+│ + _berechne_abfahrt(ankunft: datetime,                                   │
+│                     station: str) -> datetime                            │
+│   └─ Endhaltestellen: Ankunft = Abfahrt                                  │
+│   └─ Andere Stationen: Ankunft + Haltezeit = Abfahrt                     │ 
+│                                                                          │
+│ + _runde_ab(dt: datetime) -> datetime                                    │
+│   └─ Rundet auf frühere volle Minute ab (Sekunden = 0)                   │
+│                                                                          │
+│ + naechste_abfahrt(start: str,                                           │
+│                    ziel: str,                                            │
+│                    gewuenscht: str)                                      │
+│     -> Tuple[Optional[datetime],                                         │
+│              Optional[datetime],                                         │
+│              bool]                                                       │
+│   └─ Hauptlogik: Findet nächsten Zug nach gewünschter Zeit               │
+│   └─ Berücksichtigt Hin- und Rückfahrt                                   │
+│   └─ Wendezeit 60s an Fürth Hbf                                          │
+│   └─ Returns: (Abfahrt, Ankunft, ist_naechster_tag)                      │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ uses
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            service.py                                    │
+│                       (Service-Funktionen)                               │
+├──────────────────────────────────────────────────────────────────────────┤
+│ + zeige_stationen(fahrplan: Fahrplan) -> None                            │
+│   └─ Zeigt alle 23 Stationen in 3 Spalten mit Nummerierung               │
+│                                                                          │
+│ + eingabe_station_mit_nummer(fahrplan: Fahrplan,                         │
+│                               prompt: str) -> str                        │
+│   └─ Erlaubt Eingabe per Nummer (1-23) oder Stationsname                 │
+│   └─ Validierung mit Retry-Logik                                         │
+│                                                                          │
+│ + eingabe_zeit() -> str | None                                           │
+│   └─ Eingabe und Validierung der Uhrzeit (HH:MM)                         │
+│   └─ Max. 3 Versuche (MAX_VERSUCHE)                                      │
+│                                                                          │
+│ + erstelle_fahrplan() -> Fahrplan                                        │
+│   └─ Factory-Funktion: Erstellt Fahrplan-Objekt                          │
+│   └─ Initialisiert mit Daten aus adjazenzliste.py                        │
+│   └─ Setzt startzeit und endzeit auf heutiges Datum                      │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ uses
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                              main.py                                     │
+│                          (Hauptprogramm)                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│ if __name__ == "__main__":                                               │
+│                                                                          │
+│   1. fahrplan = erstelle_fahrplan()                                      │
+│      └─ Initialisierung des Fahrplan-Objekts                             │
+│                                                                          │
+│   2. zeige_stationen(fahrplan)                                           │
+│      └─ Ausgabe aller verfügbaren Stationen                              │
+│                                                                          │
+│   3. start = eingabe_station_mit_nummer(...)                             │
+│      └─ Benutzer wählt Startstation                                      │
+│                                                                          │
+│   4. ziel = eingabe_station_mit_nummer(...)                              │
+│      └─ Benutzer wählt Zielstation (≠ Start)                             │
+│                                                                          │
+│   5. gewuenscht = eingabe_zeit()                                         │
+│      └─ Benutzer gibt gewünschte Abfahrtszeit ein                        │
+│                                                                          │
+│   6. abfahrt, ankunft, ist_morgen =                                      │
+│      fahrplan.naechste_abfahrt(start, ziel, gewuenscht)                  │
+│      └─ Berechnung der nächsten Verbindung                               │
+│                                                                          │
+│   7. Ausgabe der Verbindung:                                             │
+│      - Von: Start                                                        │
+│      - Nach: Ziel                                                        │
+│      - Abfahrt: HH:MM Uhr                                                │
+│      - Ankunft: HH:MM Uhr                                                │
+│      - Warnung: Falls nächster Tag                                       │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Datenfluss                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+User Input
+    │
+    ├─ Start: "HAUPTBAHNHOF"
+    ├─ Ziel: "PLÄRRER"
+    └─ Zeit: "08:02"
+    │
+    ▼
+main.py
+    │
+    ├─ erstelle_fahrplan()  ────────────► Fahrplan Objekt
+    │                                           │
+    ├─ eingabe_station_mit_nummer()             │
+    ├─ eingabe_station_mit_nummer()             │
+    ├─ eingabe_zeit()                           │
+    │                                           │
+    └─ fahrplan.naechste_abfahrt() ◄────────────┘
+            │
+            ├─ Iteriert durch alle Züge (05:00, 05:10, 05:20, ...)
+            │
+            ├─ Für jeden Zug:
+            │  ├─ _berechne_ankunft(zug_start, 0, start_idx)
+            │  │     → Ankunft an Startstation
+            │  ├─ _berechne_abfahrt(ankunft, start)
+            │  │     → Abfahrt = Ankunft + Haltezeit (oder direkt)
+            │  ├─ _runde_ab(abfahrt)
+            │  │     → Abrunden auf volle Minute
+            │  └─ Vergleich mit gewünschter Zeit
+            │
+            └─ Returns: (08:10, 08:12, False)
+                │
+                ▼
+            Ausgabe:
+            ✓ NÄCHSTE VERBINDUNG
+            Von:      HAUPTBAHNHOF
+            Nach:     PLÄRRER
+            Abfahrt:  08:10 Uhr
+            Ankunft:  08:12 Uhr
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Berechnungslogik (Algorithmus)                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Hinfahrt (z.B. Langwasser Süd → Hauptbahnhof):
+┌─────────────────────────────────────────────────────────┐
+│ Zug startet 07:40 in Langwasser Süd                     │
+│   └─ Keine Haltezeit (Endhaltestelle)                   │
+│                                                         │
+│ Station für Station:                                    │
+│   Fahrtzeit zur nächsten + Haltezeit = nächste Station  │
+│                                                         │
+│ LW Süd (07:40:00)                                       │
+│   + 3 Min Fahrt = Gemeinschaftshaus (07:43:00)          │
+│   + 30s Halt + 2 Min = LW Mitte (07:45:30)              │
+│   ...                                                   │
+│   + 2 Min Fahrt = Hauptbahnhof (08:09:00) ← Ankunft     │
+│   + 60s Halt = Abfahrt (08:10:00)                       │
+│   └─ Gerundet: 08:10                                    │
+└─────────────────────────────────────────────────────────┘
+
+Rückfahrt (z.B. Fürth Hbf → Stadtgrenze):
+┌─────────────────────────────────────────────────────────┐
+│ Zug startet 05:00 in Langwasser Süd                     │
+│                                                         │
+│ 1. Hinfahrt bis Fürth Hbf                               │
+│    LW Süd (05:00:00) → Fürth Hbf (05:59:30)             │
+│                                                         │
+│ 2. Wendezeit 60s                                        │
+│    Fürth Hbf (05:59:30) + 60s = (06:00:30)              │
+│                                                         │
+│ 3. Rückfahrt ab Fürth Hbf                               │
+│    Fürth Hbf (06:00:30) ← Abfahrt Rückrichtung          │
+│    └─ Keine extra Haltezeit (Endhaltestelle)            │
+│    └─ Gerundet: 06:00                                   │
+│                                                         │
+│    Fürth Hbf (06:00:30)                                 │
+│      + 3 Min Fahrt = Jakobinenstr. (06:03:30)           │
+│      + 30s Halt + 2 Min = Stadtgrenze (06:06:00)        │
+└─────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Klassenbeziehungen                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    adjazenzliste.py  ─────imports────►  service.py
+         │                                  │
+         │                                  │
+         └──────────imports─────────────────┤
+                                            │
+                                            ▼
+                                        classe.py
+                                            │
+                                            │ uses
+                                            ▼
+                                        main.py
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Abhängigkeiten                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+main.py
+  └─ service (alle Funktionen)
+      └─ classe.Fahrplan
+          └─ adjazenzliste (Daten)
+
+adjazenzliste.py: 0 Abhängigkeiten (reine Datendefinition)
+classe.py:        datetime, timedelta, typing
+service.py:       datetime, classe, adjazenzliste
+main.py:          service
