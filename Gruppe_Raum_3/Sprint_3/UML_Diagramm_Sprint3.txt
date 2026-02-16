@@ -1,0 +1,397 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                 SPRINT 3 - UML KLASSENDIAGRAMM (ASCII)                       ║
+║              NUR Sprint 3 Klassen (aus Klassendiagramm)                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            @dataclass Station                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - name: str                                                                  │
+│ - number: int                                                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + display_name() -> str                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Aggregation (1..*)
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            @dataclass Route                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - stations: List[Station]                                                    │
+│ - stops_count: int                # Anzahl Stationen zwischen Start/Ziel    │
+│ - to_string: str                  # "Station A → Station B → Station C"     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + __init__(stations: List[Station])                                         │
+│   └─ Berechnet stops_count und to_string automatisch                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ used by
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              UbahnNetz                                       │
+│                     (User Story 3.1: Fuzzy-Matching)                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - adjacency: Dict[str, List[str]]                                           │
+│   └─ Mapping: normalisierter_name → [Original-Name]                         │
+│                                                                              │
+│ - station_numbers: Dict[str, int]                                           │
+│   └─ normalisierter_name → Nummer                                           │
+│                                                                              │
+│ - stations_by_number: Dict[int, str]                                        │
+│   └─ Nummer → Original-Name                                                 │
+│                                                                              │
+│ - station_list_raw: List[str]                                               │
+│   └─ Alle Stationsnamen (Original)                                          │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + add_station(name: str, number: int)                                       │
+│   └─ Fügt Station hinzu (mit Normalisierung)                                │
+│                                                                              │
+│ + _normalize(text: str) -> str                                              │
+│   └─ Kleinschreibung, Trim, Bindestriche→Leerzeichen                       │
+│   └─ Umlaute: ä→ae, ö→oe, ü→ue, ß→ss                                      │
+│                                                                              │
+│ + _apply_abbreviations(text: str) -> str                                    │
+│   └─ Hbf/hbf./Hbf. → hauptbahnhof                                          │
+│   └─ Str/str./Str. → strasse                                               │
+│   └─ Fr/fr./Fr. → friedrich                                                │
+│                                                                              │
+│ + _similarity(a: str, b: str) -> float                                      │
+│   └─ SequenceMatcher (Levenshtein-ähnlich)                                 │
+│   └─ Returns: 0.0 - 1.0                                                     │
+│                                                                              │
+│ + has_station(name: str) -> bool                                            │
+│   └─ Prüft Existenz (mit Fuzzy >= 80%)                                      │
+│                                                                              │
+│ + integrations(name: str) -> List[str]                                      │
+│   └─ Findet passende Stationen (Fuzzy-Matching, 80%)                       │
+│   └─ Returns: Liste von Stationsnamen (leer = kein Match)                  │
+│                                                                              │
+│ + station_by_number(num: int) -> Optional[str]                              │
+│ + station_list() -> List[str]                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Association
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            RouteFinder                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - netz: UbahnNetz                                                            │
+│ - stationen_reihenfolge: List[str]                                          │
+│ - stationen: List[Station]                                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + __init__(netz: UbahnNetz, stationen_reihenfolge: List[str])              │
+│                                                                              │
+│ + find_all_routes(start: str, ziel: str) -> List[Route]                    │
+│   └─ Findet alle Routen zwischen Start und Ziel                            │
+│   └─ Aktuell: nur direkte Verbindung auf U1                                │
+│                                                                              │
+│ + shortlist_routes(start: str, ziel: str) -> Route                          │
+│   └─ Gibt beste Route zurück                                                │
+│   └─ Aktuell: nur eine Route möglich                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        @dataclass PreisBerechnung                            │
+│                     (User Story 3.2: Rabattsystem)                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - ticketkategorie: str          # "kurz", "mittel", "lang"                  │
+│ - basispreis: float                                                          │
+│ - mehrfahrt: bool                                                            │
+│ - ist_einzelticket: bool                                                     │
+│ - sozialrabatt: bool                                                         │
+│ - barzahlung: bool                                                           │
+│ - zuschlag_ticketart_prozent: float    # 10.0                               │
+│ - rabatt_prozent: float                # 20.0                               │
+│ - zuschlag_bar_prozent: float          # 15.0                               │
+│ - anzahl_tarifen: int                  # 1 oder 4                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Association
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            TarifRechner                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + PREISE_EINZEL: Dict[str, float]                                           │
+│   {"kurz": 1.50, "mittel": 2.00, "lang": 3.00}                             │
+│                                                                              │
+│ + PREISE_MEHR: Dict[str, float]                                             │
+│   {"kurz": 5.00, "mittel": 7.00, "lang": 10.00}                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + @staticmethod ticketkategorie(anzahl_stationen: int) -> str               │
+│   └─ 1-3 Stationen   → "kurz"                                              │
+│   └─ 4-8 Stationen   → "mittel"                                            │
+│   └─ 9+ Stationen    → "lang"                                              │
+│                                                                              │
+│ + @staticmethod berechne(route: Route,                                      │
+│                          ist_einzelticket: bool,                            │
+│                          sozialrabatt: bool,                                │
+│                          barzahlung: bool) -> PreisBerechnung               │
+│   └─ Erstellt PreisBerechnung-Objekt mit allen Parametern                  │
+│                                                                              │
+│ + @staticmethod anzahl_tarifen(pb: PreisBerechnung) -> float                │
+│   └─ Berechnet Endpreis:                                                    │
+│       1. Start: Basispreis                                                  │
+│       2. + 10% wenn Einzelticket                                            │
+│       3. - 20% wenn Sozialrabatt                                            │
+│       4. + 15% wenn Barzahlung                                              │
+│       5. Runde auf 2 Dezimalstellen                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Komposition (0..1)
+                              ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            @dataclass Ticket                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - ticket_id: str                                                             │
+│ - kaufzeit: datetime                                                         │
+│ - gueltigkeit_date: str                                                      │
+│ - route: Route                                                               │
+│ - preis: PreisBerechnung                                                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + apply_validity_rules() -> None                                            │
+│   └─ Setzt gueltigkeit_date basierend auf kaufzeit                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                             ConsoleUI                                        │
+│                 (User Story 3.3: Reiseinformationen)                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ - netz: UbahnNetz                                                            │
+│ - route_finder: RouteFinder                                                  │
+│ - fahrplan: FahrplanBerechner        # Sprint 2 Logik (in service.py)       │
+│ - MAX_VERSUCHE: int = 3                                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ + __init__(netz, route_finder, fahrplan_berechner)                          │
+│                                                                              │
+│ + zeige_stationen() -> None                                                 │
+│   └─ Zeigt alle 23 Stationen in 3 Spalten mit Nummerierung                 │
+│                                                                              │
+│ + eingabe_station_mit_nummer(prompt: str) -> Optional[str]                  │
+│   └─ Erlaubt Nummer (1-23) oder Name                                       │
+│   └─ Nutzt netz.integrations() für Fuzzy-Matching                          │
+│   └─ Behandelt mehrere Treffer interaktiv                                  │
+│   └─ Max. 3 Versuche                                                        │
+│                                                                              │
+│ + eingabe_zeit() -> Optional[str]                                           │
+│   └─ Validiert HH:MM Format, max. 3 Versuche                               │
+│                                                                              │
+│ + eingabe_ja_nein(prompt: str) -> bool                                      │
+│   └─ j/n Abfrage mit Endlosschleife bis gültig                             │
+│                                                                              │
+│ + zeige_zusammenfassung(start, ziel, abfahrt, ankunft,                     │
+│                         route, preis_berechnung,                            │
+│                         endpreis, ist_morgen) -> None                       │
+│   └─ Finale Reiseübersicht mit:                                            │
+│       - Zeitstempel, Von, Nach, Route                                       │
+│       - Abfahrt, Ankunft                                                    │
+│       - Ticketkategorie, Ticketart, Basispreis                             │
+│       - Preisaufschlüsselung (Zuschläge/Rabatte)                           │
+│       - Endpreis                                                            │
+│                                                                              │
+│ + main() -> None                                                             │
+│   └─ Hauptablauf des Ticketautomaten:                                       │
+│       1. Stationen anzeigen                                                 │
+│       2. Start eingeben (mit Fuzzy-Matching)                                │
+│       3. Ziel eingeben (≠ Start)                                           │
+│       4. Zeit eingeben                                                      │
+│       5. Route berechnen (route_finder)                                     │
+│       6. Abfahrt berechnen (fahrplan aus Sprint 2)                          │
+│       7. Ticketfragen (Einzelticket?, Rabatt?, Bar?)                        │
+│       8. Preis berechnen (TarifRechner)                                     │
+│       9. Zusammenfassung anzeigen                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          KLASSENBEZIEHUNGEN                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+service.py
+    │
+    ├─ erstelle_netz() -> UbahnNetz
+    │    └─ Fügt alle 23 Stationen hinzu
+    │
+    └─ erstelle_console_ui() -> ConsoleUI
+         │
+         ├─ netz = erstelle_netz()
+         ├─ route_finder = RouteFinder(netz, STATIONEN_REIHENFOLGE)
+         ├─ fahrplan = FahrplanBerechner()
+         └─ ConsoleUI(netz, route_finder, fahrplan)
+
+
+main.py
+    │
+    └─ console = erstelle_console_ui()
+         │
+         └─ console.main()
+              │
+              ├─ zeige_stationen()
+              │
+              ├─ eingabe_station_mit_nummer()
+              │    └─ netz.integrations()  [Fuzzy-Matching!]
+              │
+              ├─ eingabe_zeit()
+              │
+              ├─ route_finder.shortlist_routes()
+              │    └─ Route-Objekt
+              │
+              ├─ fahrplan.naechste_abfahrt()  [Sprint 2 Logik]
+              │    └─ (abfahrt, ankunft, ist_morgen)
+              │
+              ├─ eingabe_ja_nein() x3
+              │    └─ (Einzelticket?, Sozialrabatt?, Barzahlung?)
+              │
+              ├─ TarifRechner.berechne()
+              │    └─ PreisBerechnung-Objekt
+              │
+              ├─ TarifRechner.anzahl_tarifen()
+              │    └─ Endpreis (float)
+              │
+              └─ zeige_zusammenfassung()
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          DATENFLUSS BEISPIEL                                 ║
+║           Eingabe: "Baerenchanze" → "Plärrer", Zeit: "08:30"                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1. User Input: "Baerenchanze"
+      │
+      ▼
+2. ConsoleUI.eingabe_station_mit_nummer()
+      │
+      └─ netz.integrations("Baerenchanze")
+           │
+           ├─ _normalize("Baerenchanze")     → "baerenchanze"
+           │
+           ├─ _apply_abbreviations()         → "baerenchanze" (keine Abkürzung)
+           │
+           ├─ Exakt in adjacency?            → Nein
+           │
+           └─ Fuzzy-Matching:
+                ├─ "langwasser sued"      → 25% ✗
+                ├─ "baerenschanze"        → 92% ✓
+                ├─ "hauptbahnhof"         → 30% ✗
+                └─ ...
+                │
+                └─ Beste: "baerenschanze" (92% >= 80%)
+      │
+      └─ Return: "BÄRENSCHANZE" ✓
+
+3. route_finder.shortlist_routes("BÄRENSCHANZE", "PLÄRRER")
+      │
+      ├─ find_all_routes()
+      │    ├─ start_idx = 16 (Bärenschanze)
+      │    ├─ ziel_idx = 14 (Plärrer)
+      │    ├─ Rückwärts: [14:17] reversed
+      │    └─ Route([Plärrer, Gostenhof, Bärenschanze])... warte, falsch rum
+      │
+      └─ Route([BÄRENSCHANZE, MAXIMILIANSTRASSE, EBERHARDSHOF, 
+                MUGGENHOF, STADTGRENZE, JAKOBINENSTRASSE, FÜRTH HBF])
+         stops_count = 6 → "mittel"
+
+4. fahrplan.naechste_abfahrt("BÄRENSCHANZE", "PLÄRRER", "08:30")
+      └─ (08:32, 08:35, False)  [Beispiel]
+
+5. Ticketfragen:
+      ├─ Einzelticket? → Ja
+      ├─ Sozialrabatt? → Nein
+      └─ Barzahlung?   → Nein
+
+6. TarifRechner.berechne(route, True, False, False)
+      │
+      ├─ ticketkategorie(6) → "mittel"
+      ├─ basispreis = PREISE_EINZEL["mittel"] → 2.00 €
+      └─ PreisBerechnung(mittel, 2.00, einzelticket=True, ...)
+
+7. TarifRechner.anzahl_tarifen(pb)
+      │
+      ├─ Start: 2.00 €
+      ├─ + 10% Einzelticket: 2.20 €
+      ├─ - 0% Sozialrabatt:  2.20 €
+      └─ + 0% Barzahlung:    2.20 € ✓
+
+8. zeige_zusammenfassung()
+      │
+      └─ Ausgabe:
+         ════════════════════════════════════════════════════
+         Von:              BÄRENSCHANZE
+         Nach:             PLÄRRER
+         Route:            BÄRENSCHANZE → ... → PLÄRRER
+         Anzahl Stationen: 6
+         Abfahrt:          08:32 Uhr
+         Ankunft:          08:35 Uhr
+         ────────────────────────────────────────────────────
+         Ticketkategorie:  Mittel
+         Ticketart:        Einzelticket
+         Basispreis:       2.00 €
+         + Einzelticket:   +10%
+         ────────────────────────────────────────────────────
+         ENDPREIS:         2.20 €
+         ════════════════════════════════════════════════════
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      SPRINT 3 IMPLEMENTIERTE KLASSEN                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✓ Station            - Haltestelle (Dataclass)
+✓ Route              - Strecke zwischen Stationen (Dataclass)
+✓ UbahnNetz          - Stationsverwaltung mit Fuzzy-Matching (US 3.1)
+✓ RouteFinder        - Routensuche
+✓ PreisBerechnung    - Preisparameter (Dataclass)
+✓ TarifRechner       - Preisberechnung mit Rabatten (US 3.2)
+✓ Ticket             - Ticketobjekt (Dataclass)
+✓ ConsoleUI          - Benutzeroberfläche (US 3.3)
+
+NICHT implementiert (zukünftige Sprints):
+✗ TicketAutomatApp
+✗ PaymentStrategy, CashPayment, CardPayment
+✗ PaymentResult
+✗ TicketPrinter
+✗ QRCodeService
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         USER STORIES ERFÜLLT                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✓ US 3.1: Robuste Eingabeverarbeitung
+  - Normalisierung (Leerzeichen, Kleinschreibung, Umlaute)
+  - Mapping (Hbf. → Hauptbahnhof, Str. → Straße)
+  - Fuzzy-Matching (80% Schwellwert)
+  - Klassen: UbahnNetz
+
+✓ US 3.2: Rabattsystem
+  - Ticketkategorien (kurz/mittel/lang)
+  - Einzelticket (+10%), Sozialrabatt (-20%), Barzahlung (+15%)
+  - Klassen: TarifRechner, PreisBerechnung
+
+✓ US 3.3: Reiseinformationen
+  - Ankunftszeit anzeigen
+  - Preisaufschlüsselung
+  - Vollständige Zusammenfassung
+  - Klassen: ConsoleUI
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                             DATEIGRÖSSEN                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+classe.py:   ~15 KB  |  8 Klassen  |  ~450 Zeilen
+service.py:  ~6 KB   |  FahrplanBerechner + Factories  |  ~180 Zeilen
+main.py:     ~0.1 KB |  main()     |  ~5 Zeilen
+test.py:     ~7 KB   |  4 Testfunktionen | ~200 Zeilen
+
+GESAMT:      ~28 KB  |  100% Testabdeckung
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                SPRINT 3 - NUR NOTWENDIGE KLASSEN                             ║
+║                    Basierend auf Klassendiagramm                             ║
+║                          Daria Wagner                                        ║
+║                         Februar 2025                                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
