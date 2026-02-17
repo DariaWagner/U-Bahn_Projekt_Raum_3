@@ -7,7 +7,9 @@ Dieses Projekt ist modular aufgebaut und kann mit verschiedenen U-Bahn Adjazenzl
 ## Kollegen-Module (NICHT ÄNDERN!)
 
 ### 1. `ticket.py` (von Kollegen)
+
 Enthält die Preisberechnung mit Enums:
+
 - `TicketKategorie` (KURZ, MITTEL, LANG)
 - `TicketArt` (EINZEL, MEHRFAHRT)
 - `Zahlart` (BAR, BARGELDLOS)
@@ -15,12 +17,15 @@ Enthält die Preisberechnung mit Enums:
 - `erstelle_ticket()` - Factory-Funktion
 
 **Verwendung in Sprint 3:**
+
 - `classe.py` importiert `ticket.py`
-- Adapter-Klassen `PreisBerechnung` und `TarifRechner` 
+- Adapter-Klassen `PreisBerechnung` und `TarifRechner`
 - Fallback auf Original-Implementation wenn `ticket.py` nicht vorhanden
 
 ### 2. `console_ui_extern.py` (von Kollegen)
+
 Enthält UI-Funktionen:
+
 - `ask_yes_no()` - Ja/Nein Fragen
 - `ask_amount()` - Geldbetrag abfragen
 - `choose_start_station()` - Startstation wählen
@@ -124,9 +129,11 @@ from adjazenzliste_u2 import (
 ## Unterstützte Linien
 
 ### Aktuell implementiert:
+
 - ✅ **U1** (Langwasser Süd ↔ Fürth Hbf) - 23 Stationen
 
 ### Einfach hinzuzufügen:
+
 - **U2** (Röthenbach ↔ Flughafen)
 - **U3** (Gustav-Adolf-Straße ↔ Nordwestring)
 - Beliebige andere lineare U-Bahn Strecken
@@ -134,6 +141,7 @@ from adjazenzliste_u2 import (
 ## Wichtige Regeln
 
 ### 1. Adjazenzliste muss haben:
+
 - ✅ `vorher` - Vorherige Station (oder None)
 - ✅ `nachher` - Nächste Station (oder None)
 - ✅ `linie` - Linien-ID (String)
@@ -141,12 +149,14 @@ from adjazenzliste_u2 import (
 - ✅ `umsteigezeit` - Haltezeit in Sekunden (int)
 
 ### 2. Pflicht-Konstanten:
+
 - `UHRZEITEN_BETRIEB_LINIE_XX` (dict mit start/ende/intervall)
 - `STATIONEN_REIHENFOLGE` (List[str])
 - `HALTEZEITEN` (Dict[str, int])
 - `ENDHALTESTELLEN` (Set[str])
 
 ### 3. Namenskonvention:
+
 - Stationsnamen: **GROSSBUCHSTABEN**
 - Endhaltestellen: `umsteigezeit = 60`
 - Hauptknoten: `umsteigezeit = 60`
@@ -176,6 +186,7 @@ python3 test.py
 ```
 
 Erwartete Ausgabe:
+
 ```
 ✓ Fuzzy-Matching: 12/12
 ✓ Ticketkategorien: 9/9
@@ -186,12 +197,15 @@ Erwartete Ausgabe:
 ## Troubleshooting
 
 **Problem:** `ImportError: cannot import name 'TicketKategorie'`
+
 - **Lösung:** `ticket.py` fehlt → Fallback wird automatisch verwendet
 
 **Problem:** Falsche Preise
+
 - **Lösung:** Prüfe ob `ticket.py` die gleichen Preise hat wie Spezifikation
 
 **Problem:** Station nicht gefunden
+
 - **Lösung:** Prüfe ob Station in `STATIONEN_REIHENFOLGE` ist (GROSSBUCHSTABEN!)
 
 ## Beispiel: Komplette U2 Integration
@@ -199,7 +213,7 @@ Erwartete Ausgabe:
 ```python
 # adjazenzliste_u2.py
 STATIONEN_U2 = {
-    "RÖTHENBACH": [{"vorher": None, "nachher": "HOHE MARTER", 
+    "RÖTHENBACH": [{"vorher": None, "nachher": "HOHE MARTER",
                     "linie": "U2", "fahrtzeit": 3, "umsteigezeit": 60}],
     # ... 20 weitere Stationen
     "FLUGHAFEN": [{"vorher": "NORDOSTBAHNHOF", "nachher": None,
@@ -216,5 +230,12 @@ print("U-BAHN LINIE U2: Röthenbach ↔ Flughafen")
 **Funktioniert sofort!** ✅
 
 ## Autor
-Daria Wagner - Sprint 3
-Integration mit Kollegen-Modulen
+
+Sprint 3
+Daria Wagner
+Markus Badura
+Okan Cakir
+Sven Gräfe
+Omar Hamza
+Ishak Khalil
+Stefan Meiß
