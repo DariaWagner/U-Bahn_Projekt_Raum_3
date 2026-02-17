@@ -329,12 +329,13 @@ if barzahlung:
 ## Autor
 
 **Sprint 3**
-**Daria Wagner**  
-**Markus Badura**
-**Okan Cakir**
-**Sven Gräfe**
-**Omar Hamza**
-**Ishak Khalil**
+
+**Daria Wagner,**  
+**Markus Badura,**
+**Okan Cakir,**
+**Sven Gräfe,**
+**Omar Hamza,**
+**Ishak Khalil,**
 **Stefan Meiß**
 
 ---
